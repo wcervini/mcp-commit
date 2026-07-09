@@ -110,7 +110,7 @@ The implementation in `index.ts` showcases:
 
 1. Setting up the MCP server with proper configuration
 2. Handling command line arguments and environment variables
-3. Integrating with OpenAI's API using GPT-4o-mini model
+3. Integrating with OpenCode Zen API (MiMo V2.5 Free model)
 4. Git operations using child processes
 5. Error handling and fallback mechanisms
 6. Detailed change analysis and formatting
@@ -135,6 +135,10 @@ pnpm run build
 ## Contributing
 
 Feel free to submit issues and enhancement requests!
+
+## Credits
+
+This project is a fork of [hypermodel-labs/mcp-server-auto-commit](https://github.com/hypermodel-labs/mcp-server-auto-commit), with modifications to use OpenCode Zen instead of OpenAI.
 
 ## License
 
