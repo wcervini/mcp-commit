@@ -13,7 +13,7 @@ This implementation provides a Git changes analyzer that generates commit messag
 ## Features
 
 - Analyzes git changes in your repository (both staged and unstaged)
-- Generates conventional commit messages using MiMo V2.5 Free (OpenCode Zen)
+- Generates conventional commit messages with gitmoji (https://gitmoji.dev) using MiMo V2.5 Free (OpenCode Zen)
 - Provides detailed summaries of:
   - 📝 Modified files
   - ✨ Newly added files
@@ -98,7 +98,7 @@ This tool analyzes the current git changes in your repository and generates a co
 - List of newly added files
 - List of deleted files
 - Detailed changes for each file (limited to 10 lines per file for readability)
-- A generated commit message following conventional commits format
+- A generated commit message following conventional commits format with gitmoji
 - An auto-commit signature
 
 Usage parameters:
