@@ -98,7 +98,7 @@ async function generateCommitMessage(summary: string): Promise<string> {
       messages: [
         {
           role: "system",
-          content: "You are a helpful assistant that generates concise and descriptive git commit messages based on code changes. Follow conventional commits format."
+          content: "You are a helpful assistant that generates concise and descriptive git commit messages based on code changes. Follow conventional commits format with gitmoji (https://gitmoji.dev). Start each commit message with the appropriate emoji followed by a colon and space. Common gitmojis: ✨ for new features, 🐛 for bug fixes, 📝 for docs, ♻️ for refactor, 🔧 for config, 🎨 for style, ⚡ for performance, 🔒 for security, 🚀 for deployment, 📦 for dependencies."
         },
         {
           role: "user",
