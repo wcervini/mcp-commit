@@ -116,6 +116,8 @@ async function generateCommitMessage(summary: string): Promise<string> {
   }
 }
 
+// MCP git-auto-commit server with gitmoji support
+
 // Define the git changes summary tool
 server.tool(
   "git-changes-commit-message",
