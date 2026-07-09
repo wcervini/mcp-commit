@@ -1,6 +1,6 @@
 # MCP Server to Auto commit changes  🛠️
 
-This implementation provides a Git changes analyzer that generates commit messages using OpenAI's GPT models.
+This implementation provides a Git changes analyzer that generates commit messages using OpenCode Zen (MiMo V2.5 Free).
 
 <a href="https://glama.ai/mcp/servers/xm2dqoc1s6">
   <img width="380" height="200" src="https://glama.ai/mcp/servers/xm2dqoc1s6/badge" alt="Git Auto Commit Server MCP server" />
@@ -13,7 +13,7 @@ This implementation provides a Git changes analyzer that generates commit messag
 ## Features
 
 - Analyzes git changes in your repository (both staged and unstaged)
-- Generates conventional commit messages using GPT-4o-mini
+- Generates conventional commit messages using MiMo V2.5 Free (OpenCode Zen)
 - Provides detailed summaries of:
   - 📝 Modified files
   - ✨ Newly added files
@@ -35,7 +35,7 @@ mcp-server-auto-commit/
 ## Prerequisites
 
 - Node.js installed
-- OpenAI API key
+- OpenCode Zen API key (free at https://opencode.ai)
 - Git repository to analyze
 - pnpm package manager
 
@@ -52,8 +52,8 @@ cd mcp-server-auto-commit
 pnpm install
 ```
 
-3. Set up your OpenAI API key using one of these methods:
-   - Set as an environment variable: `OPENAI_API_KEY=your-api-key`
+3. Set up your OpenCode Zen API key using one of these methods:
+   - Set as an environment variable: `OPENCODE_API_KEY=your-api-key`
    - Pass as a command line argument: `--key your-api-key`
    - Add to a `.env` file in the project root
 
@@ -71,7 +71,7 @@ This will generate the `/build/index.js` file - your compiled MCP server script.
    - Name: git-auto-commit
    - Type: command
    - Command: `node ABSOLUTE_PATH_TO_MCP_SERVER/build/index.js --key your-api-key`
-   (Replace `your-api-key` with your actual OpenAI API key if not set in environment)
+   (Replace `your-api-key` with your actual OpenCode Zen API key if not set in environment)
 
 ## Using with Claude Desktop
 
@@ -92,7 +92,7 @@ Add the following MCP config to your Claude Desktop configuration:
 
 ### git-changes-commit-message
 
-This tool analyzes the current git changes in your repository and generates a commit message using OpenAI's GPT-4o-mini model. It provides:
+This tool analyzes the current git changes in your repository and generates a commit message using MiMo V2.5 Free (OpenCode Zen). It provides:
 
 - List of modified files with status indicators
 - List of newly added files

@@ -1,27 +1,21 @@
 {
-  "name": "send-email",
+  "name": "mcp-server-auto-commit",
   "version": "1.0.0",
   "main": "index.js",
-  "keywords": [],
+  "keywords": ["mcp", "git", "commit", "openai"],
   "author": "",
   "license": "ISC",
-  "description": "",
+  "description": "MCP Server to auto commit changes using OpenAI",
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.5.0",
-    "@react-email/components": "^0.0.33",
-    "@react-email/render": "^1.0.5",
     "dotenv": "^16.4.5",
-    "minimalist": "^1.0.0",
     "minimist": "^1.2.8",
     "openai": "^4.28.0",
     "zod": "^3.24.2"
   },
   "devDependencies": {
-    "@types/dotenv": "^8.2.0",
     "@types/minimist": "^1.2.5",
     "@types/node": "^22.13.5",
-    "@types/react": "^18.2.64",
-    "@types/react-dom": "^18.2.21",
     "typescript": "^5.7.3"
   },
   "type": "module",

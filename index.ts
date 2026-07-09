@@ -5,17 +5,19 @@ import { exec } from 'child_process';
 import { promisify } from 'util';
 import OpenAI from 'openai';
 import * as dotenv from 'dotenv';
+import * as path from 'path';
+import * as fs from 'fs';
 import minimist from "minimist";
 
 // Parse command line arguments
 const argv = minimist(process.argv.slice(2));
 
 // Get API key from command line argument or fall back to environment variable
-const apiKey = argv.key || process.env.OPENAI_API_KEY;
+const apiKey = argv.key || process.env.OPENCODE_API_KEY || process.env.OPENAI_API_KEY;
 
 if (!apiKey) {
   console.error(
-    "No API key provided. Please set OPENAI_API_KEY environment variable or use --key argument"
+    "No API key provided. Please set OPENCODE_API_KEY environment variable or use --key argument"
   );
   process.exit(1);
 }
@@ -24,9 +26,10 @@ dotenv.config();
 
 const execAsync = promisify(exec);
 
-// Initialize OpenAI client
+// Initialize OpenAI-compatible client for OpenCode Zen
 const openai = new OpenAI({
   apiKey: apiKey,
+  baseURL: "https://opencode.ai/zen/v1",
 });
 
 // Create server instance
@@ -40,10 +43,17 @@ async function getGitChanges(input: string) {
   try {
     // Get staged and unstaged changes
     const cwd = input || process.cwd();
-    console.log("cwd", cwd);
-    await execAsync(`cd ${cwd}`);
-    const { stdout: diffOutput } = await execAsync('git diff HEAD', { cwd });
-    const { stdout: statusOutput } = await execAsync('git status --porcelain', { cwd });
+    
+    // Validate that cwd is a valid directory
+    if (!fs.existsSync(cwd)) {
+      throw new Error(`Directory does not exist: ${cwd}`);
+    }
+    
+    const resolvedCwd = path.resolve(cwd);
+    console.log("cwd", resolvedCwd);
+    
+    const { stdout: diffOutput } = await execAsync('git diff HEAD', { cwd: resolvedCwd });
+    const { stdout: statusOutput } = await execAsync('git status --porcelain', { cwd: resolvedCwd });
     
     // Process the changes
     const changes = {
@@ -84,7 +94,7 @@ async function getGitChanges(input: string) {
 async function generateCommitMessage(summary: string): Promise<string> {
   try {
     const response = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
+      model: "mimo-v2.5-free",
       messages: [
         {
           role: "system",
