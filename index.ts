@@ -1,10 +1,9 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
-import { exec } from 'child_process';
+import { exec, spawn } from 'child_process';
 import { promisify } from 'util';
 import OpenAI from 'openai';
-import * as dotenv from 'dotenv';
 import * as path from 'path';
 import * as fs from 'fs';
 import minimist from "minimist";
@@ -12,25 +11,37 @@ import minimist from "minimist";
 // Parse command line arguments
 const argv = minimist(process.argv.slice(2));
 
-// Get API key from command line argument or fall back to environment variable
-const apiKey = argv.key || process.env.OPENCODE_API_KEY || process.env.OPENAI_API_KEY;
-
-if (!apiKey) {
-  console.error(
-    "No API key provided. Please set OPENCODE_API_KEY environment variable or use --key argument"
-  );
-  process.exit(1);
-}
-
-dotenv.config();
-
 const execAsync = promisify(exec);
 
-// Initialize OpenAI-compatible client for OpenCode Zen
-const openai = new OpenAI({
-  apiKey: apiKey,
-  baseURL: "https://opencode.ai/zen/v1",
-});
+/** Run a git subcommand via spawn (avoids shell injection) */
+function runGitCommand(subcommand: string, args: string[], cwd: string): Promise<{ stdout: string; stderr: string }> {
+  return new Promise((resolve, reject) => {
+    const child = spawn('git', [subcommand, ...args], { cwd, stdio: ['ignore', 'pipe', 'pipe'] });
+    let stdout = '';
+    let stderr = '';
+    child.stdout.on('data', (data: Buffer) => { stdout += data.toString(); });
+    child.stderr.on('data', (data: Buffer) => { stderr += data.toString(); });
+    child.on('close', (code: number | null) => {
+      if (code === 0) resolve({ stdout, stderr });
+      else reject(new Error(`git ${subcommand} failed (exit ${code}): ${stderr || stdout}`));
+    });
+    child.on('error', reject);
+  });
+}
+
+const apiKey = argv.key || process.env.OPENCODE_API_KEY || process.env.OPENAI_API_KEY;
+
+const baseURL = argv.baseUrl || process.env.OPENAI_BASE_URL || "https://opencode.ai/zen/v1";
+
+const openai = apiKey
+  ? new OpenAI({ apiKey, baseURL })
+  : null;
+
+if (apiKey) {
+  console.error("OpenCode Zen API key detected — AI commit messages enabled");
+} else {
+  console.error("No API key found — using fallback commit messages");
+}
 
 // Create server instance
 const server = new McpServer({
@@ -50,9 +61,25 @@ async function getGitChanges(input: string) {
     }
     
     const resolvedCwd = path.resolve(cwd);
-    console.log("cwd", resolvedCwd);
+    console.error("cwd", resolvedCwd);
+
+    // Validate it's a git repository
+    try {
+      await execAsync('git rev-parse --git-dir', { cwd: resolvedCwd });
+    } catch {
+      throw new Error(`Not a git repository: ${resolvedCwd}`);
+    }
     
-    const { stdout: diffOutput } = await execAsync('git diff HEAD', { cwd: resolvedCwd });
+    // Check if repo has commits (HEAD exists)
+    let hasInitialCommit = true;
+    try {
+      await execAsync('git rev-parse HEAD', { cwd: resolvedCwd });
+    } catch {
+      hasInitialCommit = false;
+    }
+
+    const diffCommand = hasInitialCommit ? 'git diff HEAD' : 'git diff --cached';
+    const { stdout: diffOutput } = await execAsync(diffCommand, { cwd: resolvedCwd });
     const { stdout: statusOutput } = await execAsync('git status --porcelain', { cwd: resolvedCwd });
     
     // Process the changes
@@ -90,8 +117,23 @@ async function getGitChanges(input: string) {
   }
 }
 
-// Function to generate commit message using OpenAI
-async function generateCommitMessage(summary: string): Promise<string> {
+function buildDefaultMessage(changes: {
+  modified: string[]; added: string[]; deleted: string[];
+}): string {
+  const parts: string[] = [];
+  if (changes.added.length) parts.push(`add ${changes.added.join(', ')}`);
+  if (changes.modified.length) parts.push(`update ${changes.modified.join(', ')}`);
+  if (changes.deleted.length) parts.push(`remove ${changes.deleted.join(', ')}`);
+  return `chore: ${parts.join('; ') || 'update codebase'}`;
+}
+
+// Function to generate commit message using OpenAI (or fallback)
+async function generateCommitMessage(
+  summary: string,
+  changes: { modified: string[]; added: string[]; deleted: string[] }
+): Promise<string> {
+  if (!openai) return buildDefaultMessage(changes);
+
   try {
     const response = await openai.chat.completions.create({
       model: "mimo-v2.5-free",
@@ -109,10 +151,10 @@ async function generateCommitMessage(summary: string): Promise<string> {
       temperature: 0.7,
     });
 
-    return response.choices[0].message.content || "chore: update codebase";
+    return response.choices[0].message.content || buildDefaultMessage(changes);
   } catch (error) {
     console.error("Error generating commit message:", error);
-    return "chore: update codebase";
+    return buildDefaultMessage(changes);
   }
 }
 
@@ -121,7 +163,7 @@ async function generateCommitMessage(summary: string): Promise<string> {
 // Define the git changes summary tool
 server.tool(
   "git-changes-commit-message",
-  "Analyzes current git changes and provides a commit message",
+  "Analyzes current git changes and executes a commit with auto-generated message",
   {
     autoCommitPath: z.string().describe("Optional path to analyze specific directory/file"),
   },
@@ -155,14 +197,27 @@ server.tool(
         }
       });
 
-      const generatedMessage = await generateCommitMessage(summary);
+      const generatedMessage = await generateCommitMessage(summary, changes);
       const commitMessage = generatedMessage.split('\n').filter(msg => msg.trim().length > 0) || [];
       commitMessage.push(`🤖 auto-commit by: [mcp-server-auto-commit](https://github.com/jatinsandilya/mcp-server-auto-commit)`);
+
+      // Use repo root so git commands work consistently
+      const repoRoot = (await execAsync('git rev-parse --show-toplevel', { cwd: process.cwd() })).stdout.trim();
+      const stagePath = autoCommitPath ? path.resolve(autoCommitPath) : repoRoot;
+
+      // Run git add and commit via spawn to avoid shell injection
+      await runGitCommand('add', stagePath !== repoRoot ? [stagePath] : ['.'], repoRoot);
+      const { stdout: commitOutput, stderr: commitError } = await runGitCommand(
+        'commit',
+        commitMessage.flatMap(msg => ['-m', msg]),
+        repoRoot
+      );
+
       return {
         content: [
           {
             type: "text",
-            text: `git add . && git commit ${commitMessage.map(msg => `-m "${msg}"`).join(' ')}`,
+            text: `✅ Commit successful:\n\n${generatedMessage}\n\n${commitOutput}${commitError}`,
           },
         ],
       };
@@ -171,7 +226,7 @@ server.tool(
         content: [
           {
             type: "text",
-            text: `Error: ${error.message}`,
+            text: `❌ Error: ${error.message}`,
           },
         ],
       };
@@ -182,7 +237,7 @@ server.tool(
 async function main() {
   const transport = new StdioServerTransport();
   await server.connect(transport);
-  console.log("MCP Server running on stdio");
+  console.error("MCP Server running on stdio");
 }
 
 main().catch((error) => {
