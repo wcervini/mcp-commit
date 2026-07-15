@@ -2,10 +2,6 @@
 
 MCP server that analyzes git changes, generates commit messages with **gitmoji + Conventional Commits** via OpenCode Zen (MiMo V2.5 Free) or an intelligent fallback, and executes the commit automatically.
 
-<p align="center">
-  <img src="./assets/auto_commit_demo_with_ai.gif" alt="mcp-commit demo" width="700"/>
-</p>
-
 ---
 
 ## How It Works
