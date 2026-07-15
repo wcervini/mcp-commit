@@ -41,14 +41,103 @@ const mockChanges = {
 
 // ─── buildDefaultMessage (copia exacta de index.ts) ───
 
-function buildDefaultMessage(changes: {
+/** Infer the most specific scope from file paths */
+function inferScope(changes: {
+  modified: string[]; added: string[]; deleted: string[];
+}): string | undefined {
+  const allFiles = [...changes.modified, ...changes.added, ...changes.deleted].filter(Boolean);
+  if (allFiles.length === 0) return undefined;
+
+  const dirs = allFiles.map(f => f.startsWith('/') ? f.split('/')[1] : f.split('/')[0]);
+  const uniqueDirs = [...new Set(dirs)].filter(Boolean);
+
+  if (uniqueDirs.length === 1) return uniqueDirs[0];
+
+  // Check if there's a common parent directory (2 levels deep)
+  const parents = allFiles.map(f => {
+    const parts = f.split('/');
+    return parts.length >= 2 ? parts.slice(0, 2).join('/') : parts[0];
+  });
+  const uniqueParents = [...new Set(parents)].filter(Boolean);
+  if (uniqueParents.length === 1) return uniqueParents[0];
+
+  return undefined;
+}
+
+/** Infer gitmoji and type from the kind of changes detected */
+function inferTypeAndEmoji(changes: {
+  modified: string[]; added: string[]; deleted: string[];
+}): { emoji: string; type: string } {
+  const { modified, added, deleted } = changes;
+  const hasAdded = added.length > 0;
+  const hasModified = modified.length > 0;
+  const hasDeleted = deleted.length > 0;
+
+  // Only additions → new feature
+  if (hasAdded && !hasModified && !hasDeleted) {
+    return { emoji: '✨', type: 'feat' };
+  }
+
+  // Only deletions → cleanup
+  if (hasDeleted && !hasAdded && !hasModified) {
+    return { emoji: '🔥', type: 'chore' };
+  }
+
+  // Only modifications → could be a fix or refactor
+  if (hasModified && !hasAdded && !hasDeleted) {
+    return { emoji: '♻️', type: 'refactor' };
+  }
+
+  // Additions + anything else → feature
+  if (hasAdded) {
+    return { emoji: '✨', type: 'feat' };
+  }
+
+  // Modifications + deletions → refactor
+  if (hasModified && hasDeleted) {
+    return { emoji: '♻️', type: 'refactor' };
+  }
+
+  // Fallback
+  return { emoji: '🔧', type: 'chore' };
+}
+
+/** Build a description in imperative mood summarizing the changes */
+function buildDescription(changes: {
   modified: string[]; added: string[]; deleted: string[];
 }): string {
   const parts: string[] = [];
-  if (changes.added.length) parts.push(`add ${changes.added.join(', ')}`);
-  if (changes.modified.length) parts.push(`update ${changes.modified.join(', ')}`);
-  if (changes.deleted.length) parts.push(`remove ${changes.deleted.join(', ')}`);
-  return `chore: ${parts.join('; ') || 'update codebase'}`;
+  if (changes.added.length > 0) {
+    const files = changes.added.length <= 3
+      ? changes.added.join(', ')
+      : `${changes.added.length} files`;
+    parts.push(`add ${files}`);
+  }
+  if (changes.modified.length > 0) {
+    const files = changes.modified.length <= 3
+      ? changes.modified.join(', ')
+      : `${changes.modified.length} files`;
+    parts.push(`update ${files}`);
+  }
+  if (changes.deleted.length > 0) {
+    const files = changes.deleted.length <= 3
+      ? changes.deleted.join(', ')
+      : `${changes.deleted.length} files`;
+    parts.push(`remove ${files}`);
+  }
+  return parts.join(' and ') || 'update codebase';
+}
+
+/** Build a fallback commit message following conventional commits + gitmoji spec */
+function buildDefaultMessage(changes: {
+  modified: string[]; added: string[]; deleted: string[];
+}): string {
+  const { emoji, type } = inferTypeAndEmoji(changes);
+  const scope = inferScope(changes);
+  const description = buildDescription(changes);
+
+  const scopePart = scope ? `(${scope})` : '';
+  return `${emoji} ${type}${scopePart}: ${description}`;
 }
 
 // ─── Construcción del summary (copia exacta del tool handler) ───
