@@ -15,7 +15,7 @@
     "@modelcontextprotocol/sdk": "^1.29.0",
     "minimist": "^1.2.8",
     "openai": "^4.104.0",
-    "zod": "^3.25.76"
+    "zod": "^4.6.6"
   },
   "devDependencies": {
     "@types/minimist": "^1.2.5",
